@@ -5,15 +5,19 @@ import pyglet
 import arcade
 
 
-SCREEN_WIDTH = 256
-SCREEN_HEIGHT = 240
+SCREEN_WIDTH = 1024
+SCREEN_HEIGHT = 768
 SCREEN_TITLE = "Mega Man: Dr. Wily's Stupid"
-SCREEN_SCALE = 4
 
-TILE_SIZE = 16
+# How many pixels to keep as a minimum margin between the character
+# and the edge of the screen.
+LEFT_VIEWPORT_MARGIN = (1024 / 2) - (84 / 2)
+RIGHT_VIEWPORT_MARGIN = (1024 / 2) - (84 / 2)
 
-PLAYER_MOVEMENT_SPEED = 2
-PLAYER_JUMP_SPEED = 10
+TILE_SIZE = 64
+
+PLAYER_MOVEMENT_SPEED = 5
+PLAYER_JUMP_SPEED = 20
 GRAVITY = 1
 
 
@@ -31,6 +35,9 @@ class StupidGame(arcade.Window):
         
         # Initialize sprites
         self.player_sprite = None
+
+        # Used to keep track of our scrolling
+        self.view_left = 0
 
         arcade.set_background_color(arcade.csscolor.LIGHT_CYAN)
 
@@ -51,15 +58,17 @@ class StupidGame(arcade.Window):
             wall_sprite.position = (x, 0)
             self.wall_list.append(wall_sprite)
         
+        for x in range(TILE_SIZE * 4, TILE_SIZE * 8, TILE_SIZE):
+            wall_sprite = arcade.Sprite("images/tile-gray-01.png")
+            wall_sprite.position = (x, TILE_SIZE * 2)
+            self.wall_list.append(wall_sprite)
+        
         # Setup the physics engine
         self.physics_engine = arcade.PhysicsEnginePlatformer(self.player_sprite, self.wall_list, GRAVITY)
 
     def on_draw(self):
         arcade.start_render()
         
-        pyglet.gl.glTexParameteri(pyglet.gl.GL_TEXTURE_2D, pyglet.gl.GL_TEXTURE_MAG_FILTER, pyglet.gl.GL_NEAREST)
-        pyglet.gl.glTexParameteri(pyglet.gl.GL_TEXTURE_2D, pyglet.gl.GL_TEXTURE_MIN_FILTER, pyglet.gl.GL_NEAREST)
-
         # Draw sprites
         self.player_list.draw()
         self.wall_list.draw()
@@ -81,6 +90,31 @@ class StupidGame(arcade.Window):
 
     def on_update(self, delta_time):
         self.physics_engine.update()
+
+        # Manage scrolling
+
+        # Track if we need to change the viewport
+        changed = False
+
+        # Scroll left
+        left_boundary = self.view_left + LEFT_VIEWPORT_MARGIN
+        if self.player_sprite.left < left_boundary:
+            self.view_left -= left_boundary - self.player_sprite.left
+            changed = True
+
+        # Scroll right
+        right_boundary = self.view_left + SCREEN_WIDTH - RIGHT_VIEWPORT_MARGIN
+        if self.player_sprite.right > right_boundary:
+            self.view_left += self.player_sprite.right - right_boundary
+            changed = True
+
+        if changed:
+            # Only scroll to integers. Otherwise we end up with pixels that
+            # don't line up on the screen
+            self.view_left = int(self.view_left)
+
+            # Do the scrolling
+            arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, 0, SCREEN_HEIGHT)
 
 def main():
     window = StupidGame()
